@@ -1,22 +1,11 @@
-class A_test:
-    def __repr__(self):
-        return "A_test 객체이다"
-    
-
+import keyword
 
 
 def main():
-    print(12345)
-    print(123, "choi", "su", "gil")
-    print(3.12415)
-    a = A_test()
-    print(a)
+    print("hello, world")
+    print(keyword.kwlist)
 
 
-    print("this is", "python", "class", sep="-", end="_")
-    print("this is", "python", "class", sep="-")
-    
-
-if __name__ == "__main__":  
+if __name__ == "__main__":
     main()
-
+    

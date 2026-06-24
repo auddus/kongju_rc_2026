@@ -1,12 +1,11 @@
-class MyList:
+class Mylist:
     def __init__(self):
-        self.myVariable = "Hello World"
-        self.myVariable2 = "Hello World 2"
-        self.mylist = list()
+        self.myVariable = "choi"    # 인스턴스 변수
+        self.myVariable2 = "su"     # ...
+        self.myList = list()
 
-    def append(self, ele):
-        self.mylist.append(ele)
-
+    def append(self, ele):          # 메소드
+        self.myList.append(ele)
 
 
 def main():
@@ -20,11 +19,11 @@ def main():
     list_b.append(7)
     list_b.append(8)
     print(list_b)
-    list_b.insert(1, 4.5)
+    list_b.insert(1, 4.5)   # type: ignore
     print(list_b)
-    myList_a = MyList()
-    myList_a.append("myung")
-    myList_a.append("myList_a.myVariable, myList_a.myVariable2")
+    myList_a = Mylist()
+    myList_a.append("choi su gil")
+    print(myList_a.myVariable, myList_a.myVariable2, myList_a.myList)
 
 
 if __name__ == "__main__":
