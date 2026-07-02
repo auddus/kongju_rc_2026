@@ -6,4 +6,4 @@ def main():
     print(arr.ndim, arr.shape, arr.dtype)
 
 if __name__ == "__main__":
-    main()
+    main()  

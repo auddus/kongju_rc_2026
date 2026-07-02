@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Autocar Integrated Dashboard</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background: #2c3e50; color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .header { background: #1a252f; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; border-bottom: 2px solid #34495e; }
+        
+        .main-container { display: flex; flex: 1; padding: 20px; gap: 20px; }
+        
+        /* 왼쪽: 카메라 스트리밍 섹션 */
+        .camera-section { flex: 2; background: #000; border-radius: 12px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px solid #34495e; }
+        .camera-section img { max-width: 100%; max-height: 100%; }
+        .camera-overlay { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 5px; font-size: 14px; }
+
+        /* 오른쪽: 제어 섹션 */
+        .control-section { flex: 1; display: flex; flex-direction: column; gap: 15px; }
+        .card { background: #34495e; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .card h3 { margin-top: 0; color: #ecf0f1; font-size: 18px; border-bottom: 1px solid #5d6d7e; padding-bottom: 8px; }
+
+        /* 조이스틱 영역 */
+        #joystick-container { width: 160px; height: 160px; background: #2c3e50; border-radius: 50%; margin: 10px auto; position: relative; touch-action: none; border: 3px solid #1a252f; }
+        #joystick-handle { width: 50px; height: 50px; background: #e74c3c; border-radius: 50%; position: absolute; top: 55px; left: 55px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
+
+        /* 슬라이더 스타일 */
+        input[type=range] { width: 100%; margin: 10px 0; cursor: pointer; }
+        .slider-label { display: flex; justify-content: space-between; font-size: 14px; }
+
+        /* 버튼 및 입력창 */
+        .stop-btn { width: 100%; padding: 15px; background: #c0392b; color: white; border: none; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; }
+        .stop-btn:hover { background: #e74c3c; }
+        .tts-input { width: calc(100% - 70px); padding: 8px; border-radius: 4px; border: none; }
+        .tts-btn { padding: 8px 15px; background: #27ae60; border: none; color: white; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="header">🏎️ AUTOCAR 실시간 자율주행 대시보드</div>
+    
+    <div class="main-container">
+        <div class="camera-section">
+            <div class="camera-overlay" id="status-overlay">연결 대기 중...</div>
+            <img id="video-stream" src="http://127.0.0.1:8000/video_feed" alt="Camera Stream">
+        </div>
+
+        <div class="control-section">
+            <div class="card">
+                <h3>주행 컨트롤 (Joystick)</h3>
+                <div id="joystick-container">
+                    <div id="joystick-handle"></div>
+                </div>
+                <div style="text-align: center; font-size: 12px;" id="drive-val">X: 0.00 | Y: 0.00</div>
+            </div>
+
+            <div class="card">
+                <h3>카메라 팬/틸트 제어</h3>
+                <div class="slider-label"><span>좌우 (Pan)</span><span id="pan-val">90</span></div>
+                <input type="range" id="pan-slider" min="0" max="180" value="90" oninput="updateCam()">
+                <div class="slider-label"><span>상하 (Tilt)</span><span id="tilt-val">90</span></div>
+                <input type="range" id="tilt-slider" min="0" max="180" value="90" oninput="updateCam()">
+            </div>
+
+            <div class="card">
+                <h3>음성 안내 (TTS)</h3>
+                <input type="text" id="tts-text" class="tts-input" placeholder="할 말을 입력하세요...">
+                <button class="tts-btn" onclick="sendTTS()">말하기</button>
+            </div>
+
+            <button class="stop-btn" onclick="sendStop()">🚨 긴급 정지 (SPACE)</button>
+        </div>
+    </div>
+
+    <script>
+        const SERVER_URL = "http://127.0.0.1:8000";
+        let lastDriveTime = 0;
+
+        // API 전송 함수들
+        async function apiPost(endpoint, data) {
+            try {
+                await fetch(`${SERVER_URL}${endpoint}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+            } catch (e) { console.error("통신 에러"); }
+        }
+
+        function sendStop() { apiPost('/api/stop', {}); }
+        function sendTTS() { apiPost('/api/sound/tts', {text: document.getElementById('tts-text').value}); }
+        
+        function updateCam() {
+            const p = document.getElementById('pan-slider').value;
+            const t = document.getElementById('tilt-slider').value;
+            document.getElementById('pan-val').innerText = p;
+            document.getElementById('tilt-val').innerText = t;
+            apiPost('/api/camera/pan_tilt', {pan: p, tilt: t});
+        }
+
+        // 조이스틱 로직
+        const container = document.getElementById('joystick-container');
+        const handle = document.getElementById('joystick-handle');
+        let isDragging = false;
+        const maxR = 55;
+
+        handle.addEventListener('mousedown', () => isDragging = true);
+        window.addEventListener('mouseup', () => {
+            if(!isDragging) return;
+            isDragging = false;
+            handle.style.left = '55px'; handle.style.top = '55px';
+            apiPost('/api/drive', {x: 0, y: 0});
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if(!isDragging) return;
+            const rect = container.getBoundingClientRect();
+            let dx = e.clientX - (rect.left + 80);
+            let dy = (rect.top + 80) - e.clientY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if(dist > maxR) { dx *= maxR/dist; dy *= maxR/dist; }
+            handle.style.left = `${55 + dx}px`; handle.style.top = `${55 - dy}px`;
+            
+            const nx = (dx/maxR).toFixed(2); const ny = (dy/maxR).toFixed(2);
+            document.getElementById('drive-val').innerText = `X: ${nx} | Y: ${ny}`;
+
+            const now = Date.now();
+            if(now - lastDriveTime > 100) {
+                apiPost('/api/drive', {x: nx, y: ny});
+                lastDriveTime = now;
+            }
+        });
+
+        // 상태 업데이트 폴링
+        setInterval(async () => {
+            try {
+                const res = await fetch(`${SERVER_URL}/api/status`);
+                const d = await res.json();
+                document.getElementById('status-overlay').innerText = `LIVE | 속도: ${d.speed}% | 조향: ${d.steering}°`;
+            } catch(e) { document.getElementById('status-overlay').innerText = "OFFLINE"; }
+        }, 500);
+
+        window.addEventListener('keydown', (e) => { if(e.code === 'Space') sendStop(); });
+    </script>
+</body>
+</html>
